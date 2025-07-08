@@ -40,6 +40,7 @@ class WebSocketManager:
 
         for client in clients:
             try:
+                logger.info(f"Publishing message to {client.client}")
                 await client.send_json({
                     "topic": topic,
                     "message": message
