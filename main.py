@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from websocket_server import WebSocketManager
+import logging
+logger = logging.getLogger('uvicorn.error')
 
 app = FastAPI()
 manager = WebSocketManager()
@@ -34,14 +36,19 @@ async def websocket_endpoint(websocket: WebSocket):
             action = data.get("action")
             topic = data.get("topic")
             message = data.get("message")
-
+            logger.info(f"Received message: {message}")
             if action == "subscribe" and topic:
+                # one socket can subscribe to multiple topics(which can be any string)
                 await manager.subscribe(websocket, topic)
             elif action == "unsubscribe" and topic:
                 await manager.unsubscribe(websocket, topic)
-            elif action == "publish" and topic and message:
-                await manager.publish(topic, message)
+            elif action == "publish" and message:
+
+                # here we want to action the message, but only "reply" based on the topic and content in the message.
+
+                await manager.publish(message)
             else:
+                logger.error(f"Invalid message: {raw_data}")
                 await websocket.send_json({"error": "Invalid message format"})
     except WebSocketDisconnect:
         manager.disconnect(websocket)

@@ -1,22 +1,26 @@
 import asyncio
+import json
 import logging
 
-import websockets
 from typing import Dict, Set
 
 from starlette.websockets import WebSocket
+
+from example_messages.path_value_matcher import create_pattern_matcher, matches_value
+
 logger = logging.getLogger('uvicorn.error')
+
 
 class WebSocketManager:
     def __init__(self):
-        print("WebSocketManager initialized")
+        logger.info("WebSocketManager initialized")
         self.active_connections: Set[WebSocket] = set()
         self.subscriptions: Dict[str, Set[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.add(websocket)
-        print(f"Client connected: {websocket.client}")
+        logger.info(f"Client connected: {websocket.client}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.discard(websocket)
@@ -35,16 +39,30 @@ class WebSocketManager:
             self.subscriptions[topic].discard(websocket)
             await websocket.send_json({"status": "unsubscribed", "topic": topic})
 
-    async def publish(self, topic: str, message: str):
-        clients = self.subscriptions.get(topic, set())
+    def get_subscribed_clients(self, message):
+        topic = None
+        # find matching topic
+        # store the matching pattern rather have to calculate it each time?
+        for key in self.subscriptions.keys():
+            message_dict = json.loads(message)
+            *pattern, value = key.split(",")
+            match_pattern = create_pattern_matcher(*pattern)
+
+            if matches_value(message_dict, match_pattern, value):
+                topic = key
+                break
+        return self.subscriptions.get(topic, set())
+
+    async def publish(self, message: str):
+
+        clients = self.get_subscribed_clients(message)
 
         for client in clients:
             try:
                 logger.info(f"Publishing message to {client.client}")
                 await client.send_json({
-                    "topic": topic,
                     "message": message
                 })
             except:
+                logger.error(f"Error sending message to {client.client}")
                 self.disconnect(client)
-
