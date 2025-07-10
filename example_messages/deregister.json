@@ -1,0 +1,10 @@
+{
+    "type": "deregister",
+    "mosysId": "d54bb94b-8f2d-4ad6-8ddf-56d01b4b4c21",
+    "body": {
+        "event": "SceneInStudioCurrentStateChanged",
+        "data": {
+            "sceneId": "d54bb94b-8f2d-4ad6-8ddf-56d01b4b4c22"
+        }
+    }
+}
