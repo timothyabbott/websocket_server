@@ -6,7 +6,7 @@ from typing import Dict, Set
 
 from starlette.websockets import WebSocket
 
-from example_messages.path_value_matcher import create_pattern_matcher, matches_value
+from path_value_matcher import matches_subset
 
 logger = logging.getLogger('uvicorn.error')
 
@@ -42,20 +42,18 @@ class WebSocketManager:
     def get_subscribed_clients(self, message):
         topic = None
         # find matching topic
-        # store the matching pattern rather have to calculate it each time?
-        for key in self.subscriptions.keys():
+        # probably better to just store the dict than the string.
+        if type(message) is not dict:
             message_dict = json.loads(message)
-            *pattern, value = key.split(",")
-            match_pattern = create_pattern_matcher(*pattern)
-
-            if matches_value(message_dict, match_pattern, value):
+        else:
+            message_dict = message
+        for key in self.subscriptions.keys():
+            if matches_subset(json.loads(key),message_dict):
                 topic = key
                 break
         return self.subscriptions.get(topic, set())
 
-    async def publish(self, message: str):
-
-        clients = self.get_subscribed_clients(message)
+    async def publish(self, message: str, clients: Set[WebSocket]):
 
         for client in clients:
             try:
@@ -63,6 +61,6 @@ class WebSocketManager:
                 await client.send_json({
                     "message": message
                 })
-            except:
+            except Exception:
                 logger.error(f"Error sending message to {client.client}")
                 self.disconnect(client)
